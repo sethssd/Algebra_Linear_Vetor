@@ -39,6 +39,8 @@ class CanvasView:
 
         # Callback disparado quando um ponto é adicionado via duplo clique
         self.on_point_added_callback = None
+        # Callback disparado quando um estado é salvo no histórico (para atualizar o indicador)
+        self.on_state_saved_callback = None
 
         # Vinculação de eventos do mouse
         self.canvas.bind("<Configure>", lambda e: self.redraw())
@@ -107,6 +109,11 @@ class CanvasView:
         # Paleta de cores rotativa para os pontos
         palette = ["#ff79c6", "#ffb86c", "#bd93f9", "#50fa7b", "#8be9fd", "#f1fa8c"]
         color = palette[count % len(palette)]
+
+        # Salvar estado antes de adicionar o ponto
+        # Apenas as transformações matriciais são guardadas no histórico agora.
+        if self.on_state_saved_callback:
+            self.on_state_saved_callback()
 
         self.shape_manager.add_point(wx, wy, label, color)
 
@@ -259,8 +266,8 @@ class CanvasView:
         # 6. Modo "Figura" ou "Ambos": Desenhar Polígono Transformado
         if self.view_mode in ["Figura", "Ambos"] and len(trans_coords) >= 2:
             screen_pts = []
-            for tx, ty in trans_coords:
-                sx, sy = self.to_screen(tx, ty)
+            for t_pt in trans_coords:
+                sx, sy = self.to_screen(t_pt.x, t_pt.y)
                 screen_pts.extend([sx, sy])
 
             if len(trans_coords) >= 3:
@@ -277,35 +284,34 @@ class CanvasView:
 
         # 7. Modo "Vetores" ou "Ambos": Desenhar Setas da Origem até cada ponto
         if self.view_mode in ["Vetores", "Ambos"]:
-            for idx, (tx, ty) in enumerate(trans_coords):
-                pt = points[idx]
-                sx, sy = self.to_screen(tx, ty)
+            for t_pt in trans_coords:
+                sx, sy = self.to_screen(t_pt.x, t_pt.y)
                 dist = math.hypot(sx - sx0, sy - sy0)
                 if dist >= 2:
                     self.canvas.create_line(
                         sx0, sy0, sx, sy,
-                        fill=pt.color, width=3,
+                        fill=t_pt.color, width=3,
                         arrow=tk.LAST, arrowshape=(10, 12, 5),
                     )
 
         # 8. Desenhar Pontos (bolinhas) e Rótulos com Coordenadas
-        for idx, (tx, ty) in enumerate(trans_coords):
-            pt = points[idx]
-            sx, sy = self.to_screen(tx, ty)
+        for t_pt in trans_coords:
+            sx, sy = self.to_screen(t_pt.x, t_pt.y)
 
             # Bolinha do vértice
             self.canvas.create_oval(
                 sx - 5, sy - 5, sx + 5, sy + 5,
-                fill=pt.color, outline="#ffffff", width=1.5,
+                fill=t_pt.color, outline="#ffffff", width=1.5,
             )
 
             # Rótulo com coordenadas transformadas
             if self.show_labels:
-                lbl_text = f"{pt.label}'({tx:.1f}, {ty:.1f})"
+                # O rótulo mostra as coordenadas transformadas em tempo real
+                lbl_text = f"{t_pt.label}'({t_pt.x:.1f}, {t_pt.y:.1f})"
                 self.canvas.create_text(
                     sx + 10, sy - 10,
                     text=lbl_text,
-                    fill=pt.color,
+                    fill=t_pt.color,
                     font=("Segoe UI", 9, "bold"),
                     anchor="w",
                 )

@@ -18,6 +18,10 @@ class Point2D:
         self.label = label
         self.color = color
 
+    def clone(self):
+        """Retorna uma cópia independente deste ponto."""
+        return Point2D(self.x, self.y, self.label, self.color)
+
     def to_tuple(self):
         """Retorna as coordenadas como tupla (x, y)."""
         return (self.x, self.y)
@@ -27,9 +31,57 @@ class ShapeManager:
     """Gerencia a lista de pontos que formam a figura geométrica."""
 
     def __init__(self):
-        self.points = []
+        self.base_points = []
+        self.matrix_stack = []
         self.shape_name = "Quadrado Unitário"
         self.load_preset_shape("Quadrado Unitário")
+
+    @property
+    def points(self):
+        """Retorna os pontos calculados em tempo real com base na pilha de matrizes."""
+        M_total = Matrix2D.identity()
+        for M in self.matrix_stack:
+            M_total = Matrix2D.multiply(M, M_total)  # Acumulação da transformação
+
+        res = []
+        for pt in self.base_points:
+            nx, ny = Matrix2D.transform_point(M_total, (pt.x, pt.y))
+            res.append(Point2D(nx, ny, pt.label, pt.color))
+        return res
+
+    # ------------------------------------------------------------------ #
+    #  Histórico de Matrizes (Desfazer)
+    # ------------------------------------------------------------------ #
+
+    def push_history(self, shape_color=None, shape_outline=None):
+        """Removido para dar lugar ao armazenamento de matrizes apenas."""
+        pass
+
+    def apply_transformation(self, M):
+        """Adiciona a matriz na pilha em vez de modificar fisicamente os pontos."""
+        # Se for a identidade, não precisa salvar
+        if not Matrix2D.is_identity(M):
+            self.matrix_stack.append(M)
+
+    def pop_history(self):
+        """Remove a última matriz da pilha (Desfazer a última transformação)."""
+        if self.matrix_stack:
+            self.matrix_stack.pop()
+            return True # Indica que algo foi desfeito
+        return False
+
+    def reset_history(self):
+        """Limpa o histórico de matrizes acumuladas."""
+        self.matrix_stack.clear()
+
+    def restore_initial_state(self):
+        """Restaura o estado inicial da figura (limpa o histórico de matrizes)."""
+        self.matrix_stack.clear()
+        return True
+
+    def can_undo(self):
+        """Retorna True se houver transformações na pilha."""
+        return len(self.matrix_stack) > 0
 
     # ------------------------------------------------------------------ #
     #  Figuras predefinidas
@@ -38,7 +90,8 @@ class ShapeManager:
     def load_preset_shape(self, shape_name):
         """Carrega uma figura predefinida pelo nome, substituindo os pontos atuais."""
         self.shape_name = shape_name
-        self.points.clear()
+        self.base_points.clear()
+        self.reset_history()
 
         if shape_name == "Quadrado Unitário":
             pts = [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)]
@@ -62,45 +115,42 @@ class ShapeManager:
         for idx, (x, y) in enumerate(pts):
             lbl = f"P{idx + 1}"
             col = colors[idx % len(colors)]
-            self.points.append(Point2D(x, y, lbl, col))
+            self.base_points.append(Point2D(x, y, lbl, col))
 
     # ------------------------------------------------------------------ #
     #  Manipulação de pontos
     # ------------------------------------------------------------------ #
 
     def add_point(self, x, y, label="", color="#00f2fe"):
-        """Adiciona um novo ponto à lista. Se label estiver vazio, gera automaticamente."""
+        """Adiciona um novo ponto aos base_points."""
         if not label:
-            label = f"P{len(self.points) + 1}"
-        self.points.append(Point2D(x, y, label, color))
+            label = f"P{len(self.base_points) + 1}"
+        self.base_points.append(Point2D(x, y, label, color))
 
     def remove_point(self, index):
         """Remove o ponto no índice fornecido e atualiza os rótulos sequenciais."""
-        if 0 <= index < len(self.points):
-            self.points.pop(index)
-            # Reorganizar os rótulos sequenciais P1, P2, P3...
-            for idx, pt in enumerate(self.points):
+        if 0 <= index < len(self.base_points):
+            self.base_points.pop(index)
+            for idx, pt in enumerate(self.base_points):
                 if pt.label.startswith("P") and pt.label[1:].isdigit():
                     pt.label = f"P{idx + 1}"
 
     def clear_all(self):
-        """Remove todos os pontos da lista."""
-        self.points.clear()
+        """Remove todos os pontos."""
+        self.base_points.clear()
 
     # ------------------------------------------------------------------ #
-    #  Transformação
+    #  Transformação Ocular (apenas leitura manual)
     # ------------------------------------------------------------------ #
 
     def get_transformed_points(self, M):
-        """Retorna uma lista de tuplas (nx, ny) transformadas pela matriz M.
-
-        M pode ser uma lista de listas, lista plana ou ndarray NumPy 2×2.
-        A conversão é feita internamente para garantir compatibilidade.
-        """
+        """Aplica uma matriz M temporária aos pontos ATUAIS (já transformados pela pilha)."""
+        # Obter os pontos com o histórico de matrizes já aplicado
+        current_pts = self.points 
         transformed = []
-        for pt in self.points:
+        for pt in current_pts:
             nx, ny = Matrix2D.transform_point(M, (pt.x, pt.y))
-            transformed.append((nx, ny))
+            transformed.append(Point2D(nx, ny, pt.label, pt.color))
         return transformed
 
     # ------------------------------------------------------------------ #
@@ -108,16 +158,12 @@ class ShapeManager:
     # ------------------------------------------------------------------ #
 
     def sort_points_angularly(self):
-        """Reordena os pontos angularmente em torno do centróide
-        para evitar cruzamentos (nós) no polígono e renomeia os rótulos
-        em ordem sequencial (P1, P2, P3...) para manter a exibição ordenada na aba.
-        """
-        if len(self.points) < 3:
+        """Reordena os base_points angularmente em torno do centróide."""
+        if len(self.base_points) < 3:
             return
-        cx = sum(p.x for p in self.points) / len(self.points)
-        cy = sum(p.y for p in self.points) / len(self.points)
-        self.points.sort(key=lambda p: math.atan2(p.y - cy, p.x - cx))
+        cx = sum(p.x for p in self.base_points) / len(self.base_points)
+        cy = sum(p.y for p in self.base_points) / len(self.base_points)
+        self.base_points.sort(key=lambda p: math.atan2(p.y - cy, p.x - cx))
 
-        # Reatribuir rótulos sequenciais P1, P2, P3... na ordem ordenada
-        for idx, pt in enumerate(self.points):
+        for idx, pt in enumerate(self.base_points):
             pt.label = f"P{idx + 1}"

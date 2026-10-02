@@ -9,7 +9,9 @@ barra de rolagem (scrollbar) ajustada aos limites do painel.
 import tkinter as tk
 from tkinter import colorchooser, messagebox, ttk
 from config import THEME_COLORS
-
+from ui.theme import PALETTE as T, CardFrame, icon_points, icon_scale, Divider
+from ui.dialogs import VertexCountDialog
+import math
 
 class VectorPanel:
     """Painel lateral direito para escolher figuras, alternar modo
@@ -89,70 +91,90 @@ class VectorPanel:
 
     def _build_widgets(self):
         """Constrói as seções do painel de vetores e pontos."""
+        PAD = 4
 
-        # Seção 1: Figuras Predefinidas
-        sec1 = ttk.LabelFrame(self.scroll_content, text=" 📍 Formas & Figuras ", padding=8)
-        sec1.pack(fill=tk.X, padx=6, pady=4)
+        # ---- Seção 1: Figuras Predefinidas --------------------------------
+        card1 = CardFrame(self.scroll_content, title="Forma da Figura", icon_fn=icon_scale)
+        card1.pack(fill=tk.X, padx=6, pady=(8, PAD))
 
         shapes = ["Quadrado Unitário", "Triângulo", "Casa", "Estrela", "Losango", "Figura Personalizada"]
-        cb_shape = ttk.Combobox(sec1, textvariable=self.preset_shape_var, values=shapes, state="readonly")
-        cb_shape.pack(fill=tk.X, pady=4)
+        cb_shape = ttk.Combobox(card1.body, textvariable=self.preset_shape_var,
+                                values=shapes, state="readonly")
+        cb_shape.pack(fill=tk.X, pady=(0, 4))
         cb_shape.bind("<<ComboboxSelected>>", lambda e: self.on_shape_change())
 
-        # Seção 2: Modo de Exibição (Pontos/Figura vs Vetores)
-        sec2 = ttk.LabelFrame(self.scroll_content, text=" 👁️ Modo de Exibição ", padding=8)
-        sec2.pack(fill=tk.X, padx=6, pady=4)
+        # ---- Seção 2: Modo de Exibição -----------------------------------
+        card2 = CardFrame(self.scroll_content, title="Modo de Exibição", icon_fn=icon_points)
+        card2.pack(fill=tk.X, padx=6, pady=PAD)
 
         modes = [
-            ("🔺 Figura (Polígono)", "Figura"),
-            ("🏹 Vetores (Setas)", "Vetores"),
-            ("✨ Ambos (Figura + Vetores)", "Ambos"),
+            ("Figura (Polígono)", "Figura"),
+            ("Vetores (Setas)", "Vetores"),
+            ("Ambos (Figura + Vetores)", "Ambos"),
         ]
         for text, mode_val in modes:
             r = ttk.Radiobutton(
-                sec2, text=text, value=mode_val,
+                card2.body, text=text, value=mode_val,
                 variable=self.view_mode_var, command=self.on_view_mode_change,
+                style="Card.TRadiobutton" if False else "TRadiobutton",
             )
-            r.pack(anchor="w", pady=2)
+            r.pack(anchor="w", pady=1)
 
-        # Seção 3: Adicionar Ponto / Vértice
-        sec3 = ttk.LabelFrame(self.scroll_content, text=" ➕ Adicionar Ponto / Vetor ", padding=8)
-        sec3.pack(fill=tk.X, padx=6, pady=4)
+        # ---- Seção 3: Adicionar Ponto -----------------------------------
+        card3 = CardFrame(self.scroll_content, title="Adicionar Ponto", icon_fn=icon_points)
+        card3.pack(fill=tk.X, padx=6, pady=PAD)
 
-        grid_pt = ttk.Frame(sec3)
-        grid_pt.pack(fill=tk.X, pady=2)
+        # Linha de coordenadas
+        coords_row = tk.Frame(card3.body, bg=T["card"])
+        coords_row.pack(fill=tk.X, pady=(0, 4))
 
-        ttk.Label(grid_pt, text="X:").grid(row=0, column=0, padx=1)
-        ttk.Entry(grid_pt, textvariable=self.pt_x_str, width=4).grid(row=0, column=1, padx=1)
-        ttk.Label(grid_pt, text="Y:").grid(row=0, column=2, padx=1)
-        ttk.Entry(grid_pt, textvariable=self.pt_y_str, width=4).grid(row=0, column=3, padx=1)
-        ttk.Label(grid_pt, text="Nome:").grid(row=0, column=4, padx=1)
-        ttk.Entry(grid_pt, textvariable=self.pt_lbl_str, width=4).grid(row=0, column=5, padx=1)
+        for col, (label, var, w) in enumerate([
+            ("X", self.pt_x_str, 5),
+            ("Y", self.pt_y_str, 5),
+            ("Nome", self.pt_lbl_str, 5),
+        ]):
+            tk.Label(coords_row, text=label, font=("Segoe UI", 8),
+                     bg=T["card"], fg=T["subtext"]).grid(row=0, column=col * 2, padx=(0, 2), sticky="e")
+            ttk.Entry(coords_row, textvariable=var, width=w,
+                      justify="center").grid(row=0, column=col * 2 + 1, padx=(0, 6))
 
-        row_btn = ttk.Frame(sec3)
-        row_btn.pack(fill=tk.X, pady=4)
+        btn_row = tk.Frame(card3.body, bg=T["card"])
+        btn_row.pack(fill=tk.X)
 
-        # Botão de cor do ponto
-        self.btn_color_pt = tk.Button(
-            row_btn, text="🎨 Cor", bg=self.pt_color, fg="#11111b",
-            font=("Segoe UI", 8, "bold"), relief="flat", command=self.pick_point_color,
+        # Botão de cor (círculo colorido)
+        self.btn_color_pt = tk.Label(
+            btn_row, text="  ●  ",
+            font=("Segoe UI", 11, "bold"),
+            bg=self.pt_color, fg="#111",
+            padx=4, pady=3, cursor="hand2", relief="flat",
         )
         self.btn_color_pt.pack(side=tk.LEFT, padx=(0, 4))
+        self.btn_color_pt.bind("<Button-1>", lambda e: self.pick_point_color())
 
-        btn_add = ttk.Button(row_btn, text="Adicionar Ponto", command=self.add_point)
+        btn_add = tk.Label(
+            btn_row, text="  + Adicionar Ponto  ",
+            font=("Segoe UI", 9), cursor="hand2",
+            bg=T["accent"], fg="#ffffff",
+            padx=8, pady=4, relief="flat",
+        )
         btn_add.pack(side=tk.RIGHT, fill=tk.X, expand=True)
+        btn_add.bind("<Button-1>", lambda e: self.add_point())
+        btn_add.bind("<Enter>", lambda e: btn_add.config(bg=T["border_glow"]))
+        btn_add.bind("<Leave>", lambda e: btn_add.config(bg=T["accent"]))
 
-        # Seção 4: Lista de Pontos da Figura com Barra Deslizante (Scrollbar)
-        sec4 = ttk.LabelFrame(self.scroll_content, text=" 📋 Pontos da Figura ", padding=8)
-        sec4.pack(fill=tk.X, padx=6, pady=4)
+        # ---- Seção 4: Lista de Pontos ------------------------------------
+        card4 = CardFrame(self.scroll_content, title="Pontos da Figura", icon_fn=icon_points)
+        card4.pack(fill=tk.X, padx=6, pady=PAD)
 
-        # Container scrollável com Canvas e Scrollbar restrita e delimitada
-        list_container = ttk.Frame(sec4)
-        list_container.pack(fill=tk.X, expand=True, pady=2)
+        # Container scrolável
+        list_container = tk.Frame(card4.body, bg=T["card"])
+        list_container.pack(fill=tk.X, pady=(0, 4))
 
-        self.list_canvas = tk.Canvas(list_container, bg=THEME_COLORS["panel"], highlightthickness=0, height=160)
-        self.list_scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=self.list_canvas.yview)
-        self.list_frame = ttk.Frame(self.list_canvas)
+        self.list_canvas = tk.Canvas(list_container, bg=T["card_alt"],
+                                     highlightthickness=0, height=150)
+        self.list_scrollbar = ttk.Scrollbar(list_container, orient="vertical",
+                                            command=self.list_canvas.yview)
+        self.list_frame = tk.Frame(self.list_canvas, bg=T["card_alt"])
 
         self.list_window = self.list_canvas.create_window((0, 0), window=self.list_frame, anchor="nw")
         self.list_canvas.configure(yscrollcommand=self.list_scrollbar.set)
@@ -164,31 +186,54 @@ class VectorPanel:
                 self.list_canvas.configure(scrollregion=self.list_canvas.bbox("all"))
             )
         )
-
         self.list_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.list_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Suporte para roda do mouse na lista de pontos
         self._bind_mousewheel(self.list_canvas, self._on_list_canvas_scroll)
 
-        btn_sort = ttk.Button(sec4, text="🔄 Organizar Pontos (Evitar Nós)", command=self.sort_points)
-        btn_sort.pack(fill=tk.X, pady=(4, 2))
+        Divider(card4.body, padx=0, pady=2)
 
-        btn_clear = ttk.Button(sec4, text="🗑️ Limpar Todos os Pontos", command=self.clear_all_points)
-        btn_clear.pack(fill=tk.X, pady=2)
+        action_row = tk.Frame(card4.body, bg=T["card"])
+        action_row.pack(fill=tk.X, pady=2)
 
-        # Seção 5: Opções de Visibilidade da Grade
-        sec5 = ttk.LabelFrame(self.scroll_content, text=" ⚙️ Visibilidade ", padding=8)
-        sec5.pack(fill=tk.X, padx=6, pady=4)
+        btn_sort = tk.Label(
+            action_row, text="  ↻  Organizar  ",
+            font=("Segoe UI", 9), cursor="hand2",
+            bg=T["card_alt"], fg=T["accent2"],
+            padx=8, pady=4, relief="flat",
+        )
+        btn_sort.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 3))
+        btn_sort.bind("<Button-1>", lambda e: self.sort_points())
+        btn_sort.bind("<Enter>", lambda e: btn_sort.config(bg=T["border"]))
+        btn_sort.bind("<Leave>", lambda e: btn_sort.config(bg=T["card_alt"]))
 
-        ttk.Checkbutton(sec5, text="Grade Cartesiana (Fundo)",
-                        variable=self.show_orig_grid_var, command=self.update_visibilities).pack(anchor="w")
-        ttk.Checkbutton(sec5, text="Grade Transformada",
-                        variable=self.show_trans_grid_var, command=self.update_visibilities).pack(anchor="w")
-        ttk.Checkbutton(sec5, text="Contorno da Figura Original",
-                        variable=self.show_orig_shape_var, command=self.update_visibilities).pack(anchor="w")
-        ttk.Checkbutton(sec5, text="Rótulos e Coordenadas",
-                        variable=self.show_labels_var, command=self.update_visibilities).pack(anchor="w")
+        btn_clear = tk.Label(
+            action_row, text="  ✕  Limpar  ",
+            font=("Segoe UI", 9), cursor="hand2",
+            bg=T["card_alt"], fg=T["danger"],
+            padx=8, pady=4, relief="flat",
+        )
+        btn_clear.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(3, 0))
+        btn_clear.bind("<Button-1>", lambda e: self.clear_all_points())
+        btn_clear.bind("<Enter>", lambda e: btn_clear.config(bg=T["border"]))
+        btn_clear.bind("<Leave>", lambda e: btn_clear.config(bg=T["card_alt"]))
+
+        # ---- Seção 5: Visibilidade ---------------------------------------
+        card5_bg = T["card"]
+        card5 = CardFrame(self.scroll_content, title="Visibilidade")
+        card5.pack(fill=tk.X, padx=6, pady=PAD)
+
+        checks = [
+            ("Grade Cartesiana (Fundo)", self.show_orig_grid_var),
+            ("Grade Transformada", self.show_trans_grid_var),
+            ("Contorno Original", self.show_orig_shape_var),
+            ("Rótulos e Coordenadas", self.show_labels_var),
+        ]
+        for text, var in checks:
+            ttk.Checkbutton(card5.body, text=text, variable=var,
+                            command=self.update_visibilities).pack(anchor="w", pady=1)
+
+        # Espaçamento final
+        tk.Frame(self.scroll_content, bg=T["panel"], height=12).pack()
 
         # Exibir lista de pontos inicial
         self.refresh_points_list_ui()
@@ -200,7 +245,35 @@ class VectorPanel:
     def on_shape_change(self):
         """Carrega a figura predefinida selecionada no combobox."""
         shape_name = self.preset_shape_var.get()
-        if shape_name != "Figura Personalizada":
+        if shape_name == "Figura Personalizada":
+            dialog = VertexCountDialog(self.parent_frame.winfo_toplevel())
+            self.parent_frame.wait_window(dialog)
+            if dialog.result is not None:
+                self._save_state()
+                self.shape_manager.shape_name = "Figura Personalizada"
+                self.shape_manager.clear_all()
+                self.shape_manager.reset_history()
+                
+                # Gera `n` pontos em um polígono regular padrão
+                n = dialog.result
+                radius = 2.0
+                palette = ["#ff79c6", "#ffb86c", "#bd93f9", "#50fa7b", "#8be9fd", "#f1fa8c"]
+                for i in range(n):
+                    angle = 2 * math.pi * i / n - math.pi / 2  # Começa do topo
+                    x = radius * math.cos(angle)
+                    y = radius * math.sin(angle)
+                    color = palette[i % len(palette)]
+                    self.shape_manager.add_point(round(x, 2), round(y, 2), f"P{i+1}", color)
+                
+                self.refresh_points_list_ui()
+                self.canvas_view.redraw()
+            else:
+                # Se o usuário cancelou, volta o dropdown para a figura anterior
+                self.preset_shape_var.set(self.shape_manager.shape_name)
+
+        else:
+            # Salva estado antes de trocar a figura
+            self._save_state()
             self.shape_manager.load_preset_shape(shape_name)
             self.refresh_points_list_ui()
             self.canvas_view.redraw()
@@ -209,6 +282,17 @@ class VectorPanel:
         """Altera o modo de exibição (Figura / Vetores / Ambos)."""
         self.canvas_view.view_mode = self.view_mode_var.get()
         self.canvas_view.redraw()
+
+    # ------------------------------------------------------------------ #
+    #  Estado completo para desfazer
+    # ------------------------------------------------------------------ #
+
+    def _save_state(self):
+        """Salva um snapshot completo do estado atual (pontos + cores) no histórico."""
+        # Ações de pontos manuais não geram mais histórico matricial
+        # Notifica o painel de controles para atualizar o indicador de histórico
+        if hasattr(self.canvas_view, 'on_state_saved_callback') and self.canvas_view.on_state_saved_callback:
+            self.canvas_view.on_state_saved_callback()
 
     # ------------------------------------------------------------------ #
     #  Manipulação de pontos
@@ -228,6 +312,7 @@ class VectorPanel:
             y = float(self.pt_y_str.get())
             lbl = self.pt_lbl_str.get().strip() or f"P{len(self.shape_manager.points) + 1}"
 
+            self._save_state()
             self.shape_manager.add_point(x, y, lbl, self.pt_color)
             self.preset_shape_var.set("Figura Personalizada")
             self.refresh_points_list_ui()
@@ -240,18 +325,21 @@ class VectorPanel:
 
     def remove_point(self, index):
         """Remove o ponto no índice fornecido e atualiza a interface."""
+        self._save_state()
         self.shape_manager.remove_point(index)
         self.refresh_points_list_ui()
         self.canvas_view.redraw()
 
     def sort_points(self):
         """Reordena os pontos angularmente em relação ao centróide para evitar nós/cruzamentos."""
+        self._save_state()
         self.shape_manager.sort_points_angularly()
         self.refresh_points_list_ui()
         self.canvas_view.redraw()
 
     def clear_all_points(self):
         """Remove todos os pontos e atualiza a interface."""
+        self._save_state()
         self.shape_manager.clear_all()
         self.preset_shape_var.set("Figura Personalizada")
         self.refresh_points_list_ui()
@@ -278,38 +366,45 @@ class VectorPanel:
         for child in self.list_frame.winfo_children():
             child.destroy()
 
-        points = self.shape_manager.points
+        M = self.canvas_view.current_matrix
+        points = self.shape_manager.get_transformed_points(M)
         if not points:
             tk.Label(
                 self.list_frame, text="Nenhum ponto adicionado.",
                 font=("Segoe UI", 8, "italic"),
-                bg=THEME_COLORS["panel"], fg=THEME_COLORS["subtext"],
+                bg=T["card_alt"], fg=T["subtext"],
+                padx=8, pady=6,
             ).pack(anchor="w")
         else:
             for idx, pt in enumerate(points):
-                row = ttk.Frame(self.list_frame)
-                row.pack(fill=tk.X, pady=2, padx=2)
+                bg_row = T["card"] if idx % 2 == 0 else T["card_alt"]
+                row = tk.Frame(self.list_frame, bg=bg_row)
+                row.pack(fill=tk.X)
 
                 # Indicador colorido do ponto
-                lbl_dot = tk.Label(row, text="●", fg=pt.color, bg=THEME_COLORS["panel"], font=("Segoe UI", 10))
-                lbl_dot.pack(side=tk.LEFT, padx=(0, 4))
+                lbl_dot = tk.Label(row, text="●", fg=pt.color,
+                                   bg=bg_row, font=("Segoe UI", 10))
+                lbl_dot.pack(side=tk.LEFT, padx=(6, 4), pady=4)
 
                 # Texto com rótulo e coordenadas
                 lbl_txt = tk.Label(
-                    row, text=f"{pt.label}: ({pt.x:.1f}, {pt.y:.1f})",
-                    font=("Segoe UI", 9), bg=THEME_COLORS["panel"], fg=THEME_COLORS["text"],
+                    row, text=f"{pt.label}  ({pt.x:.1f}, {pt.y:.1f})",
+                    font=("Segoe UI", 9), bg=bg_row, fg=T["text"],
                 )
                 lbl_txt.pack(side=tk.LEFT, expand=True, anchor="w")
 
-                # Botão de remover ponto
-                btn_del = tk.Button(
-                    row, text="❌", font=("Segoe UI", 7),
-                    bg=THEME_COLORS["panel"], fg="#ff5555", relief="flat",
-                    command=lambda i=idx: self.remove_point(i),
+                # Botão remover minimalista
+                btn_del = tk.Label(
+                    row, text=" ✕ ", font=("Segoe UI", 8),
+                    bg=bg_row, fg=T["subtext"], cursor="hand2",
                 )
-                btn_del.pack(side=tk.RIGHT, padx=2)
+                btn_del.pack(side=tk.RIGHT, padx=4)
+                btn_del.bind("<Button-1>", lambda e, i=idx: self.remove_point(i))
+                btn_del.bind("<Enter>", lambda e, b=btn_del: b.config(fg=T["danger"]))
+                btn_del.bind("<Leave>", lambda e, b=btn_del: b.config(fg=T["subtext"]))
 
         # Forçar atualização das regiões de rolagem
         self.list_frame.update_idletasks()
         self.list_canvas.configure(scrollregion=self.list_canvas.bbox("all"))
         self.right_canvas.configure(scrollregion=self.right_canvas.bbox("all"))
+

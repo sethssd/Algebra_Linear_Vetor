@@ -127,6 +127,15 @@ class Matrix2D:
         return [[1.0, 0.0], [0.0, 1.0]]
 
     @staticmethod
+    def is_identity(mat, tol: float = 1e-4) -> bool:
+        """Verifica se a matriz 2×2 fornecida é numericamente equivalente à Identidade."""
+        try:
+            arr = np.asarray(mat, dtype=float).reshape(2, 2)
+            return bool(np.allclose(arr, np.eye(2), atol=tol))
+        except Exception:
+            return False
+
+    @staticmethod
     def shear_x(kx: float) -> Matrix:
         """Cisalhamento ao longo de X (kₓ)."""
         return Matrix2D.shear(kx, 0.0)
