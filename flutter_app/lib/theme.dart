@@ -111,7 +111,8 @@ const lightColors = AppColors(
 );
 
 extension ThemeColorsExt on BuildContext {
-  AppColors get colors => Theme.of(this).brightness == Brightness.dark ? darkColors : lightColors;
+  AppColors get colors =>
+      Theme.of(this).brightness == Brightness.dark ? darkColors : lightColors;
 }
 
 class AppTheme {
@@ -134,7 +135,7 @@ class AppTheme {
         surface: colors.panel,
         error: colors.danger,
       ),
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         color: colors.card,
         elevation: brightness == Brightness.dark ? 4 : 2,
         shadowColor: colors.shadow,
@@ -171,16 +172,16 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: colors.accent,
-          foregroundColor: brightness == Brightness.dark ? colors.bg : Colors.white,
+          foregroundColor: brightness == Brightness.dark
+              ? colors.bg
+              : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: colors.accent,
-        ),
+        style: TextButton.styleFrom(foregroundColor: colors.accent),
       ),
       dropdownMenuTheme: DropdownMenuThemeData(
         textStyle: TextStyle(color: colors.text, fontSize: 13),

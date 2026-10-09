@@ -1,18 +1,10 @@
 /// core/shape_manager.dart
-///
-/// Camada de ESTADO da engine: guarda os vértices da figura, a pilha de
-/// transformações aplicadas e o histórico para desfazer (undo).
-/// Toda a matemática pesada é delegada a `Matrix2D`; aqui fica o
-/// gerenciamento de dados e a notificação da UI.
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'matrix2d.dart';
 import '../theme.dart';
 
 /// Um vértice da figura, com dados matemáticos e visuais.
-///
-/// Diferente do `Vec2` (apenas coordenadas), o `Point2D` é MUTÁVEL e
-/// carrega rótulo e cor para que o canvas possa desenhá-lo.
 class Point2D {
   /// Coordenada X (abscissa) no plano cartesiano.
   double x;
@@ -27,27 +19,13 @@ class Point2D {
   Color color;
 
   /// Cria um ponto.
-  ///
-  /// @param x Coordenada X.
-  /// @param y Coordenada Y.
-  /// @param label Rótulo opcional (padrão: string vazia).
-  /// @param color Cor opcional (padrão: rosa `0xFFff79c6`).
   Point2D(this.x, this.y, {this.label = '', this.color = const Color(0xFFff79c6)});
 
   /// Cria uma CÓPIA independente do ponto (cópia profunda).
-  ///
-  /// Essencial para os snapshots do undo: como `Point2D` é mutável, guardar
-  /// apenas a referência faria o histórico "mudar junto" com o estado atual.
-  ///
-  /// @return Novo `Point2D` com os mesmos valores.
   Point2D clone() => Point2D(x, y, label: label, color: color);
 }
 
 /// Uma "fotografia" imutável do estado completo do `ShapeManager`.
-///
-/// Padrão *Memento*: cada vez que uma ação destrutiva acontece, uma cópia do
-/// estado anterior é empilhada. Desfazer = restaurar a última foto.
-/// Todos os campos são cópias profundas, isoladas do estado vivo.
 class ShapeStateSnapshot {
   /// Cópia dos vértices originais (antes de qualquer matriz).
   final List<Point2D> basePoints;
@@ -65,12 +43,6 @@ class ShapeStateSnapshot {
   final int? pointLimit;
 
   /// Cria um snapshot com todos os dados já copiados.
-  ///
-  /// @param basePoints Vértices originais clonados.
-  /// @param matrixStack Pilha de matrizes clonada.
-  /// @param matrixNamesStack Nomes das transformações.
-  /// @param shapeName Nome da figura.
-  /// @param pointLimit Limite de pontos (opcional).
   ShapeStateSnapshot({
     required this.basePoints,
     required this.matrixStack,
@@ -81,19 +53,6 @@ class ShapeStateSnapshot {
 }
 
 /// Gerenciador central da figura e das transformações lineares.
-///
-/// ## Modelo de dados (ideia-chave)
-///
-/// * `basePoints` guarda os vértices ORIGINAIS e nunca é alterado por
-///   transformações. As coordenadas exibidas são SEMPRE recalculadas a
-///   partir dele, o que evita acúmulo de erro de ponto flutuante.
-/// * `matrixStack` guarda cada transformação aplicada, na ordem
-///   cronológica (índice 0 = a primeira).
-/// * A matriz total é `M_n · ... · M_2 · M_1` e o ponto final é
-///   `p_final = M_total · p_base`.
-///
-/// Estende `ChangeNotifier`: ao chamar `notifyListeners()`, a UI Flutter
-/// que escuta este objeto é reconstruída automaticamente.
 class ShapeManager extends ChangeNotifier {
   /// Vértices originais da figura (antes das transformações).
   final List<Point2D> basePoints = [];
@@ -102,7 +61,6 @@ class ShapeManager extends ChangeNotifier {
   final List<List<List<double>>> matrixStack = [];
 
   /// Nomes legíveis das transformações; `matrixNamesStack[i]` descreve
-  /// `matrixStack[i]`. Mantidas sempre com o mesmo tamanho.
   final List<String> matrixNamesStack = [];
 
   /// Pilha de snapshots usada pelo sistema de undo (último = mais recente).
@@ -121,15 +79,9 @@ class ShapeManager extends ChangeNotifier {
     _loadPresetShapeInternal('Quadrado Unitário');
   }
 
-  // ------------------------------------------------------------------ //
   //  Histórico de Estado Completo
-  // ------------------------------------------------------------------ //
 
   /// Tira uma foto (snapshot) do estado atual e a empilha no histórico.
-  ///
-  /// Deve ser chamado ANTES de qualquer mudança que o usuário possa querer
-  /// desfazer. Cada coleção é copiada em PROFUNDIDADE; sem isso, o snapshot
-  /// compartilharia referências e seria alterado junto com o estado vivo.
   void _saveState() {
     _history.add(ShapeStateSnapshot(
       // 1) Clona cada ponto individualmente (Point2D é mutável).
@@ -152,8 +104,6 @@ class ShapeManager extends ChangeNotifier {
   int get historyCount => _history.length;
 
   /// Desfaz a última ação restaurando o snapshot mais recente (UNDO).
-  ///
-  /// @return `true` se algo foi restaurado; `false` se o histórico está vazio.
   bool popHistory() {
     // 1) Sem histórico não há o que desfazer.
     if (_history.isNotEmpty) {
@@ -179,9 +129,6 @@ class ShapeManager extends ChangeNotifier {
   }
 
   /// Descarta todas as transformações aplicadas, voltando à figura base.
-  ///
-  /// O estado anterior é salvo antes de limpar, então a ação continua
-  /// podendo ser desfeita.
   void resetHistory() {
     // 1) Salva o estado atual para permitir desfazer este reset.
     _saveState();
@@ -193,9 +140,6 @@ class ShapeManager extends ChangeNotifier {
   }
 
   /// Restaura a figura ao estado inicial (sem transformações).
-  ///
-  /// @return `false` se não havia nada a restaurar (nenhuma transformação e
-  /// nenhum histórico); `true` se o reset foi realizado.
   bool restoreInitialState() {
     // 1) Nada a fazer se a figura já está intacta e não há histórico.
     if (matrixStack.isEmpty && _history.isEmpty) return false;
@@ -208,25 +152,9 @@ class ShapeManager extends ChangeNotifier {
     return true;
   }
 
-  // ------------------------------------------------------------------ //
   //  Pontos calculados e Matrizes
-  // ------------------------------------------------------------------ //
 
   /// Calcula a matriz total = matriz "em edição" × todas as já aplicadas.
-  ///
-  /// Matematicamente, para a pilha `[M1, M2, ..., Mn]` e a matriz atual `C`:
-  ///
-  /// ```text
-  ///   M_total = C · Mn · ... · M2 · M1
-  /// ```
-  ///
-  /// A transformação MAIS RECENTE fica sempre à ESQUERDA, pois os pontos
-  /// são vetores coluna (`p' = M · p`): o que é aplicado por último é
-  /// multiplicado por último pela esquerda.
-  ///
-  /// @param currentM Matriz atual (ex.: pré-visualização ainda não aplicada
-  /// pelo usuário). Passe a identidade para ignorá-la.
-  /// @return Matriz 2×2 única equivalente a toda a cadeia de transformações.
   List<List<double>> getTotalMatrix(List<List<double>> currentM) {
     // 1) Começa com a identidade (elemento neutro da multiplicação).
     var mTotal = Matrix2D.identity();
@@ -242,11 +170,6 @@ class ShapeManager extends ChangeNotifier {
   }
 
   /// Pontos da figura com as transformações JÁ APLICADAS (pilha), sem
-  /// qualquer matriz em pré-visualização.
-  ///
-  /// Cada ponto é calculado como `p' = M_total · p_base`.
-  ///
-  /// @return Nova lista de `Point2D` transformados (`basePoints` não muda).
   List<Point2D> get points {
     // 1) Acumula a matriz total da pilha (mesmo algoritmo de getTotalMatrix,
     //    porém sem matriz extra em edição).
@@ -263,12 +186,6 @@ class ShapeManager extends ChangeNotifier {
   }
 
   /// Pontos transformados incluindo uma matriz atual (pré-visualização).
-  ///
-  /// Usado para mostrar em tempo real o efeito de uma transformação (ex.:
-  /// um slider de rotação) ANTES de ela ser confirmada na pilha.
-  ///
-  /// @param currentM Matriz em edição, aplicada por último.
-  /// @return Nova lista de `Point2D` com `p' = (C · M_total) · p_base`.
   List<Point2D> getTransformedPoints(List<List<double>> currentM) {
     // 1) Combina a pilha e a matriz atual em UMA única matriz 2×2.
     //    Multiplicar uma vez e depois aplicar a todos os pontos é mais
@@ -284,12 +201,6 @@ class ShapeManager extends ChangeNotifier {
   }
 
   /// Confirma uma transformação, empilhando-a na pilha de matrizes.
-  ///
-  /// Matrizes equivalentes à identidade são ignoradas, pois não alteram a
-  /// figura e só poluiriam o histórico.
-  ///
-  /// @param m Matriz 2×2 da transformação.
-  /// @param name Nome legível exibido na UI (ex.: "Rotação 45°").
   void applyTransformation(List<List<double>> m, String name) {
     // 1) Ignora transformações "nulas" (nada mudaria visualmente).
     if (!Matrix2D.isIdentity(m)) {
@@ -303,17 +214,9 @@ class ShapeManager extends ChangeNotifier {
     }
   }
 
-  // ------------------------------------------------------------------ //
   //  Figuras e Pontos
-  // ------------------------------------------------------------------ //
 
   /// Carrega uma figura pré-definida SEM salvar histórico nem notificar.
-  ///
-  /// Versão "interna" usada pelo construtor (quando não há UI escutando) e
-  /// por `loadPresetShape` (que cuida do snapshot e da notificação).
-  ///
-  /// @param name Nome da figura (ex.: 'Triângulo', 'Casa', 'Estrela').
-  /// Nomes desconhecidos resultam em uma figura vazia.
   void _loadPresetShapeInternal(String name) {
     // 1) Reseta o estado básico: nome, sem limite, sem pontos e sem
     //    transformações aplicadas.
@@ -366,8 +269,6 @@ class ShapeManager extends ChangeNotifier {
   }
 
   /// Carrega uma figura pré-definida, com suporte a undo e notificação da UI.
-  ///
-  /// @param name Nome da figura pré-definida.
   void loadPresetShape(String name) {
     // 1) Salva o estado atual para poder voltar à figura anterior.
     _saveState();
@@ -378,8 +279,6 @@ class ShapeManager extends ChangeNotifier {
   }
 
   /// Inicia o modo de figura personalizada, vazia, com limite de vértices.
-  ///
-  /// @param limit Quantidade máxima de pontos que o usuário poderá adicionar.
   void startCustomShape(int limit) {
     // 1) Salva o estado anterior (undo).
     _saveState();
@@ -393,12 +292,6 @@ class ShapeManager extends ChangeNotifier {
   }
 
   /// Adiciona um vértice à figura base.
-  ///
-  /// @param x Coordenada X do novo ponto (no espaço da figura ORIGINAL).
-  /// @param y Coordenada Y do novo ponto.
-  /// @param label Rótulo opcional (padrão: `P<n>`).
-  /// @param color Cor opcional (padrão: próxima cor da paleta).
-  /// @return `true` se o ponto foi adicionado; `false` se o limite foi atingido.
   bool addPoint(double x, double y, {String? label, Color? color}) {
     // 1) Guarda: se há limite e ele já foi atingido, recusa o ponto.
     //    (`!` é seguro, pois `pointLimit != null` foi verificado antes.)
@@ -419,9 +312,6 @@ class ShapeManager extends ChangeNotifier {
   }
 
   /// Remove o vértice da posição indicada e renumera os rótulos.
-  ///
-  /// @param index Posição (base 0) do ponto em `basePoints`. Índices
-  /// inválidos são ignorados em silêncio.
   void removePoint(int index) {
     // 1) Valida o índice para evitar RangeError.
     if (index >= 0 && index < basePoints.length) {
@@ -443,11 +333,6 @@ class ShapeManager extends ChangeNotifier {
   }
 
   /// Reordena os pontos pelo ângulo polar em torno do centroide.
-  ///
-  /// Versão in-place (altera `basePoints`) do algoritmo de
-  /// `Matrix2D.sortPointsAngularly`. Ajuda a formar um polígono sem
-  /// arestas cruzadas quando os pontos foram clicados fora de ordem.
-  /// Exige pelo menos 3 pontos (o mínimo para formar um polígono).
   void sortPointsAngularly() {
     // 1) Com menos de 3 pontos não há polígono: nada a ordenar.
     if (basePoints.length < 3) return;
@@ -470,9 +355,6 @@ class ShapeManager extends ChangeNotifier {
   }
 
   /// Renumera os rótulos automáticos para P1, P2, P3... segundo a posição.
-  ///
-  /// Só renomeia rótulos que começam com 'P' (os automáticos), preservando
-  /// nomes personalizados pelo usuário.
   void _relabelSequential() {
     for (var i = 0; i < basePoints.length; i++) {
       // Apenas rótulos automáticos são reescritos.

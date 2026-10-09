@@ -60,7 +60,6 @@ class _ControlsPanelState extends State<ControlsPanel> {
       child: ListView(
         padding: const EdgeInsets.all(8),
         children: [
-          // ---- Seção 1: Transformação ----
           _CardSection(
             icon: Icons.rotate_right_rounded,
             title: 'Transformação',
@@ -74,7 +73,6 @@ class _ControlsPanelState extends State<ControlsPanel> {
 
           const SizedBox(height: 6),
 
-          // ---- Seção 2: Histórico ----
           _CardSection(
             icon: Icons.history_rounded,
             title: 'Histórico & Desfazer',
@@ -118,7 +116,6 @@ class _ControlsPanelState extends State<ControlsPanel> {
 
           const SizedBox(height: 6),
 
-          // ---- Seção 3: Matriz [M] ----
           _CardSection(
             icon: Icons.grid_on_rounded,
             title: 'Matriz  [M]',
@@ -130,7 +127,6 @@ class _ControlsPanelState extends State<ControlsPanel> {
 
           const SizedBox(height: 6),
 
-          // ---- Seção 4: Aparência ----
           _CardSection(
             icon: Icons.palette_rounded,
             title: 'Aparência',
@@ -365,9 +361,7 @@ class _ControlsPanelState extends State<ControlsPanel> {
   }
 }
 
-// ================================================================== //
 //  Widgets auxiliares
-// ================================================================== //
 
 class _CardSection extends StatelessWidget {
   final IconData icon;

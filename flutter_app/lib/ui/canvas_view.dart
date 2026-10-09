@@ -98,7 +98,9 @@ class _CanvasViewState extends State<CanvasView> {
   @override
   void didUpdateWidget(covariant CanvasView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.currentMatrix != oldWidget.currentMatrix || widget.shapeManager.basePoints.length != oldWidget.shapeManager.basePoints.length) {
+    if (widget.currentMatrix != oldWidget.currentMatrix ||
+        widget.shapeManager.basePoints.length !=
+            oldWidget.shapeManager.basePoints.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkAndFitBounds();
       });
@@ -131,17 +133,20 @@ class _CanvasViewState extends State<CanvasView> {
 
     final sMinX = cx + minX * _zoom;
     final sMaxX = cx + maxX * _zoom;
-    final sMinY = cy - maxY * _zoom; 
+    final sMinY = cy - maxY * _zoom;
     final sMaxY = cy - minY * _zoom;
 
     // Se estiver fora da tela ou ocupando mais que a tela
-    if (sMinX < 40 || sMaxX > size.width - 40 || sMinY < 40 || sMaxY > size.height - 40) {
+    if (sMinX < 40 ||
+        sMaxX > size.width - 40 ||
+        sMinY < 40 ||
+        sMaxY > size.height - 40) {
       final centerX = (minX + maxX) / 2;
       final centerY = (minY + maxY) / 2;
       final width = (maxX - minX).abs();
       final height = (maxY - minY).abs();
 
-      final targetWidth = width < 10.0 ? 10.0 : width * 1.5; 
+      final targetWidth = width < 10.0 ? 10.0 : width * 1.5;
       final targetHeight = height < 10.0 ? 10.0 : height * 1.5;
 
       final zoomX = size.width / targetWidth;
@@ -162,16 +167,13 @@ class _CanvasViewState extends State<CanvasView> {
   void _onDoubleTap(TapDownDetails details) {
     final box = _paintKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
-    
+
     final size = box.size;
     final localPos = box.globalToLocal(details.globalPosition);
     final world = _toWorld(localPos, size);
 
-    final success = widget.shapeManager.addPoint(
-      world.dx,
-      world.dy,
-    );
-    
+    final success = widget.shapeManager.addPoint(world.dx, world.dy);
+
     if (success) {
       widget.onPointAdded?.call();
     } else {
@@ -185,10 +187,15 @@ class _CanvasViewState extends State<CanvasView> {
       builder: (ctx) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text('Limite Atingido', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
+        title: Text(
+          'Limite Atingido',
+          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+        ),
         content: Text(
           'Você atingiu o limite de ${widget.shapeManager.pointLimit} pontos selecionado.',
-          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodyMedium?.color,
+          ),
         ),
         actions: [
           TextButton(
@@ -242,7 +249,12 @@ class _CanvasViewState extends State<CanvasView> {
           ),
           child: Row(
             children: [
-              _toolbarButton(Icons.center_focus_strong, 'Centralizar', _resetView, colors),
+              _toolbarButton(
+                Icons.center_focus_strong,
+                'Centralizar',
+                _resetView,
+                colors,
+              ),
               _toolbarDivider(colors),
               _toolbarButton(Icons.add, '', _zoomIn, colors),
               _toolbarButton(Icons.remove, '', _zoomOut, colors),
@@ -295,7 +307,12 @@ class _CanvasViewState extends State<CanvasView> {
     );
   }
 
-  Widget _toolbarButton(IconData icon, String text, VoidCallback onTap, AppColors colors) {
+  Widget _toolbarButton(
+    IconData icon,
+    String text,
+    VoidCallback onTap,
+    AppColors colors,
+  ) {
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -306,7 +323,10 @@ class _CanvasViewState extends State<CanvasView> {
               Icon(icon, size: 14, color: colors.subtext),
               if (text.isNotEmpty) ...[
                 const SizedBox(width: 4),
-                Text(text, style: TextStyle(color: colors.subtext, fontSize: 12)),
+                Text(
+                  text,
+                  style: TextStyle(color: colors.subtext, fontSize: 12),
+                ),
               ],
             ],
           ),
