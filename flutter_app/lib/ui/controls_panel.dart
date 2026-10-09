@@ -397,8 +397,6 @@ class _CardSection extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(icon, color: colors.accent, size: 16),
-                const SizedBox(width: 8),
                 Text(title,
                     style: TextStyle(
                         color: colors.text,
@@ -460,8 +458,6 @@ class _ActionButtonState extends State<_ActionButton> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(widget.icon, size: 14, color: widget.color),
-              const SizedBox(width: 4),
               Text(
                 widget.label,
                 style: TextStyle(color: widget.color, fontSize: 12),

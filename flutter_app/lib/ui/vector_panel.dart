@@ -210,10 +210,9 @@ class _VectorPanelState extends State<VectorPanel> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: ElevatedButton(
                       onPressed: _addPoint,
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Adicionar Ponto'),
+                      child: const Text('Adicionar Ponto'),
                     ),
                   ),
                 ],
@@ -565,8 +564,6 @@ class _CardSection extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(icon, color: colors.accent, size: 16),
-                const SizedBox(width: 8),
                 Expanded(
                   child: Text(title,
                       style: TextStyle(
@@ -669,8 +666,6 @@ class _ActionBtnState extends State<_ActionBtn> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(widget.icon, size: 14, color: widget.color),
-              const SizedBox(width: 4),
               Text(widget.label,
                   style: TextStyle(color: widget.color, fontSize: 12)),
             ],
