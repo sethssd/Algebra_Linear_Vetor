@@ -134,7 +134,7 @@ class AppTheme {
         surface: colors.panel,
         error: colors.danger,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: colors.card,
         elevation: brightness == Brightness.dark ? 4 : 2,
         shadowColor: colors.shadow,
