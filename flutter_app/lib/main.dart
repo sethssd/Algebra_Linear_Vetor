@@ -373,28 +373,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               color: colors.text,
             ),
           ),
-          const SizedBox(width: 8),
-
-          // Badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: colors.accent,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Text('2D',
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white)),
-          ),
-          const SizedBox(width: 12),
-
-          // Subtítulo
-          Text(
-            'Visualização interativa de transformações matriciais',
-            style: TextStyle(fontSize: 12, color: colors.subtext),
-          ),
           const Spacer(),
           IconButton(
             icon: Icon(
